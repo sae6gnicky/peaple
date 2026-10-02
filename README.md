@@ -1,17 +1,18 @@
-# 역사 인물 AI 인터뷰 — 무료 API 버전
+# 역사 인물 AI 인터뷰 — 말투·음성 선택 버전
 
-## 사용 API
-- 답변 생성: Groq Free Plan — `qwen/qwen3.8-27b`
-- 음성 생성: Google Gemini 3.8 Flash TTS — `gemini-3.8-flash-tts`
-- 학생 음성 입력: Chrome Web Speech API — 별도 API 키 없음
+## API
+- Groq: 역사 인물 답변 생성 (`qwen/qwen3.8-27b`)
+- Gemini 3.8 Flash TTS: 답변 음성 생성
+- Chrome Web Speech API: 학생 질문 음성 인식
 
-현재 Google 공식 가격표에서 Gemini 3.8 Flash TTS는 Standard 기준 Free Tier가 표시되어 있습니다. 무료 한도와 모델 정책은 변경될 수 있습니다.
+## 인물별 음성
+- 세종대왕: `Bodi`
+- 이순신: `Gero`
+- 유관순: `Nika`
 
-## 사용
-1. Groq에서 API Key 발급
-2. Google AI Studio에서 Gemini API Key 발급
-3. `index.html`을 Chrome에서 실행
-4. 두 키 입력 → 마이크 권한 → API 연결 테스트 → 시작
+## 말투
+- 세종대왕: 1인칭, 조선 시대 하오체. 예: "나는 1443년 훈민정음을 만들었소."
+- 이순신: 1인칭, 조선 시대 하오체. 예: "나는 나라와 백성을 지키려 힘을 다했소."
+- 유관순: 1인칭, 현대식 자연스러운 존댓말. 반말/옛날 말투 사용 금지.
 
-## 주의
-이 프로토타입은 브라우저에서 API를 직접 호출하므로 API 키가 브라우저에 노출될 수 있습니다. 여러 교사에게 최종 배포할 때는 서버리스 백엔드/프록시로 API 키를 보호하는 방식을 권장합니다.
+API 키는 브라우저 메모리에만 유지하며 저장하지 않습니다.
