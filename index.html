@@ -19,7 +19,7 @@ label{display:block;margin:18px 0 8px;font-weight:700}.input{width:100%;padding:
 
 #intro{background:#000}.intro-video{width:100%;height:100%;object-fit:contain;background:#000}.skip{position:absolute;right:24px;bottom:24px;z-index:5}
 
-#interview{background:#05070e;flex-direction:column}.stage{position:relative;width:min(1180px,94vw);height:min(78vh,700px);display:flex;align-items:center;justify-content:center;background:#090d18;border-radius:20px;overflow:hidden;border:1px solid #27314a}.portrait{height:100%;width:100%;object-fit:contain;display:block}.micbar{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px}.mic{width:76px;height:76px;border-radius:50%;border:0;background:#6b8fe8;color:white;font-size:30px;cursor:pointer;box-shadow:0 8px 30px #0008}.mic.listening{background:#d35e68;animation:pulse 1s infinite}.mic:disabled{opacity:.45;cursor:wait}@keyframes pulse{50%{transform:scale(1.08)}}.caption{max-width:760px;text-align:center;background:#05070edd;border-radius:12px;padding:10px 16px;font-size:18px}.back{position:absolute;left:18px;top:18px;z-index:4}.busy{position:absolute;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;font-size:18px;z-index:3}.error{color:#ff9b9b}.answer{position:absolute;left:50%;top:18px;transform:translateX(-50%);max-width:760px;width:80%;text-align:center;background:#05070ee8;padding:10px 16px;border-radius:12px;display:none}.answer.show{display:block}
+#interview{background:#05070e;flex-direction:column}.stage{position:relative;width:min(1180px,94vw);height:min(78vh,700px);display:flex;align-items:center;justify-content:center;background:#090d18;border-radius:20px;overflow:hidden;border:1px solid #27314a}.portrait{height:100%;width:100%;object-fit:contain;display:block}.micbar{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px}.mic{width:76px;height:76px;border-radius:50%;border:0;background:#6b8fe8;color:white;font-size:30px;cursor:pointer;box-shadow:0 8px 30px #0008}.mic.listening{background:#d35e68;animation:pulse 1s infinite}.mic:disabled{opacity:.45;cursor:wait}@keyframes pulse{50%{transform:scale(1.08)}}.caption{max-width:760px;text-align:center;background:#05070edd;border-radius:12px;padding:10px 16px;font-size:18px}.back{position:absolute;left:18px;top:18px;z-index:4}.busy{position:absolute;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;font-size:18px;z-index:3}.error{color:#ff9b9b}.answer{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);max-width:760px;width:70%;text-align:center;background:#05070e;color:#05070e;padding:2px 10px;border-radius:8px;font-size:12px;line-height:1.2;display:none;pointer-events:none}.answer.show{display:none}
 @media(max-width:800px){.people{gap:10px}.question{font-size:48px}.card{padding:24px}.stage{height:72vh}}
 </style>
 </head>
@@ -183,17 +183,32 @@ async function testKeys(){
     });
     if(!res.ok) throw new Error("Groq HTTP "+res.status);
     setStatus("Groq 연결 성공. Gemini 3.8 Flash TTS 연결을 확인하는 중…");
-    // Very short TTS test. Audio is generated but not played.
-    const tts = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-      method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":geminiKey},
+    // Gemini TTS test using Google's documented generateContent REST endpoint.
+    const tts = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent", {
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-goog-api-key":geminiKey},
       body:JSON.stringify({
-        model:"gemini-3.8-flash-tts",
-        input:[{type:"user_input",content:[{type:"text",text:"안녕하세요.",annotations:[{type:"speech_metadata",style:"calm and friendly"}]}]}],
-        response_format:{type:"audio"},
-        generation_config:{speech_config:[{voice:"Kore"}]}
+        contents:[{
+          role:"user",
+          parts:[{
+            text:"안녕하세요.",
+            speech_metadata:{style:"calm and friendly"}
+          }]
+        }],
+        generationConfig:{
+          responseModalities:["AUDIO"],
+          speechConfig:{voiceConfig:{voice:"Kore"}}
+        }
       })
     });
-    if(!tts.ok) throw new Error("Gemini TTS HTTP "+tts.status);
+    const ttsData = await tts.json();
+    if(!tts.ok) {
+      const detail = ttsData?.error?.message || ("HTTP "+tts.status);
+      throw new Error("Gemini TTS HTTP "+tts.status+" — "+detail);
+    }
+    if(!ttsData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+      throw new Error("Gemini TTS가 음성 데이터를 반환하지 않았습니다.");
+    }
     $("start").disabled=false;
     setStatus("두 API 연결 성공. 현재 무료 사용 구간에서 테스트할 수 있습니다. 시작하기를 눌러 주세요.");
   }catch(e){
@@ -254,19 +269,30 @@ async function askAI(question){
 
 async function speak(text){
   const p=PEOPLE[selected];
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":geminiKey},
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","x-goog-api-key":geminiKey},
     body:JSON.stringify({
-      model:"gemini-3.8-flash-tts",
-      input:[{type:"user_input",content:[{type:"text",text,annotations:[{type:"speech_metadata",style:p.voiceStyle}]}]}],
-      response_format:{type:"audio",mime_type:"audio/wav"},
-      generation_config:{speech_config:[{voice:p.voice}]}
+      contents:[{
+        role:"user",
+        parts:[{
+          text:text,
+          speech_metadata:{style:p.voiceStyle}
+        }]
+      }],
+      generationConfig:{
+        responseModalities:["AUDIO"],
+        speechConfig:{voiceConfig:{voice:p.voice}}
+      }
     })
   });
   const data=await res.json();
-  if(!res.ok) throw new Error(data?.error?.message || "음성 생성 실패");
-  const audioB64 = data?.interaction?.output_audio?.data || data?.steps?.slice().reverse().find(s=>s.content)?.content?.find(c=>c.type==="audio")?.data;
-  if(!audioB64) throw new Error("음성 데이터가 없습니다.");
+  if(!res.ok) {
+    const detail = data?.error?.message || ("HTTP "+res.status);
+    throw new Error("Gemini TTS HTTP "+res.status+" — "+detail);
+  }
+  const audioB64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  if(!audioB64) throw new Error("Gemini TTS가 음성 데이터를 반환하지 않았습니다.");
   const bytes=Uint8Array.from(atob(audioB64), c=>c.charCodeAt(0));
   const url=URL.createObjectURL(new Blob([bytes],{type:"audio/wav"}));
   const audio=new Audio(url);
